@@ -35,3 +35,4 @@ for step, t in enumerate(time_traj[:-1]):
             state_traj[:, step + 1] = state_traj[:, step]
             + (timestep * spoke_dynamics(state_traj[0, step], state_traj[1, step])) #explicit euler
 
+
