@@ -5,7 +5,7 @@ spoke length. To run the simulation, first, define those variables mentioned. Th
 (intial_state) of the system, which is the angle of the stance leg to vertical and the angular velocity.
 Using too small of an angular velocity will result in no spoke switching, shown by the absence
 of sharp spikes. After defining the initial conditions, set the simulation time as needed and then
-simply run the code, outputting a plot of the stance leg angle to vertical vs time.
+simply run the code, outputting the time trajectory, state trajectory, and steady state behavior of the system.
 """
 
 #import necessary libraries
@@ -24,51 +24,48 @@ def singlesim(spoke_number, gamma, length, initial_state, sim_time):
     alpha = (2*np.pi/spoke_number)/2 #angle between adjacent spokes in radians
     gravity = 9.81 #acceleration due to gravity in m/s^2
 
-    #state variables and simulation conditions
-    timestep = 1e-5
-    n_timesteps = int(sim_time / timestep) + 1
-    time_traj = np.arange(n_timesteps) * timestep
-    state_traj = np.zeros((2, n_timesteps))
+    #initialize variables
+    state_traj = np.zeros((2, 1))
     state_traj[:, 0] = initial_state
+    switch_angular_velocity = []  # tracks angular velocity at switchs over time
+    steady_state_behavior = None #initialize steady state behavior variable
+    step = 0
+    t = 0
+    time_traj = [t]
 
-    touchdown_count = 0  # counter for number of spoke switches
     #simulation loop including switch between spokes
-    for step, t in enumerate(time_traj[:-1]):
+    while t < sim_time:
+        #better time efficiency by switching timestep
+        if abs(state_traj[0,step] - (alpha+gamma)) < 0.05: #within .05 rads of switch
+            timestep = 1e-5 #smaller timestep for more accurate switch
+        else:
+            timestep = 1e-2 #larger timestep for faster simulation
+
         #change dynamics if stance spoke switch
         if state_traj[0, step] >= alpha + gamma: #switch spoke condition
             state_traj[0, step] -= 2 * alpha  # make angle -alpha + gamma
             state_traj[1, step] *= np.cos(2 * alpha)  # change angular velocity
-            touchdown_count += 1
+            switch_angular_velocity.append(state_traj[1, step])  # store angular velocity after switch
+            if len(switch_angular_velocity) > 1 and np.isclose(switch_angular_velocity[-1], switch_angular_velocity[-2], rtol=0.01):
+                        steady_state_behavior = "Limit Cycle"
+                        #break #save time by stopping if steady state reached
+
+        #update state using explicit euler method
         state_dot = spoke_dynamics(state_traj[0, step], state_traj[1, step], length, gravity)
-        state_traj[:, step + 1] = state_traj[:, step] + timestep * state_dot  # explicit euler
-        if touchdown_count > (sim_time/2):
-            steady_state_behavior = "Limit Cycle"
+        new_state = state_traj[:, step] + timestep * state_dot
+        state_traj = np.column_stack((state_traj, new_state))
+
+        #go to next time step
+        t += timestep
+        step += 1
+        time_traj.append(t)
+
+    #other cases for not limit cycle
+    if steady_state_behavior != "Limit Cycle":
+        if len(switch_angular_velocity) > 1:
+            steady_state_behavior = "Not yet steady state" #assume less than 2 switch = stalled
         else:
             steady_state_behavior = "Stalled"
-    return time_traj, state_traj, steady_state_behavior
 
-#code in case of plotting trajectories
-"""
-#simulation parameters
-spoke_number = 8 #number of spokes N
-gamma = np.pi/16 #angle of slope in radians
-alpha = (2*np.pi/spoke_number)/2 #angle between adjacent spokes in radians
-length = 1 #length of the spokes in meters
-gravity = 9.81 #acceleration due to gravity in m/s^2
-initial_state = np.array([-alpha + gamma, 1]) #Angle, Angular velocity
-sim_time = 10.0
+    return time_traj, state_traj, steady_state_behavior, switch_angular_velocity
 
-#run function for plotting
-time_traj, state_traj, steady_state_behavior = singlesim(spoke_number, gamma, length, initial_state, sim_time)
-
-#plotting angle of stance leg to vertical vs time
-plt.close('all')
-plt.figure()
-plt.plot(time_traj, state_traj[0, :], label="Angle (radians)")
-plt.xlabel("Time (s)")
-plt.ylabel("Angle (radians)")
-plt.title("Stance Leg Angle to Vertical vs Time")
-plt.legend()
-plt.tight_layout()
-plt.show()
-"""
