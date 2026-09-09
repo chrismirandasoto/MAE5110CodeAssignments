@@ -5,7 +5,8 @@ spoke length. To run the simulation, first, define those variables mentioned. Th
 (intial_state) of the system, which is the angle of the stance leg to vertical and the angular velocity.
 Using too small of an angular velocity will result in no spoke switching, shown by the absence
 of sharp spikes. After defining the initial conditions, set the simulation time as needed and then
-simply run the code, outputting the time trajectory, state trajectory, and steady state behavior of the system.
+simply run the code, outputting the time trajectory, state trajectory, steady state behavior, and spoke
+switch angular velocitiesof the system.
 """
 
 #import necessary libraries
@@ -48,7 +49,8 @@ def singlesim(spoke_number, gamma, length, initial_state, sim_time):
             switch_angular_velocity.append(state_traj[1, step])  # store angular velocity after switch
             if len(switch_angular_velocity) > 1 and np.isclose(switch_angular_velocity[-1], switch_angular_velocity[-2], rtol=0.01):
                         steady_state_behavior = "Limit Cycle"
-                        #break #save time by stopping if steady state reached
+                        #break #uncomment if want to save time by stopping sim when steady state reached
+                        # warning: will reduce datapoints in return map
 
         #update state using explicit euler method
         state_dot = spoke_dynamics(state_traj[0, step], state_traj[1, step], length, gravity)
@@ -67,5 +69,7 @@ def singlesim(spoke_number, gamma, length, initial_state, sim_time):
         else:
             steady_state_behavior = "Stalled"
 
+    #return time and state trajectories, steady state behavior (Limit cycle, Not yet steady state, Stalled)
+    #and the angular velocities after each spoke switch
     return time_traj, state_traj, steady_state_behavior, switch_angular_velocity
 

@@ -45,29 +45,29 @@ def RegionOfAttraction(gamma, spoke_number):
     return limitcycle_theta, limitcycle_thetadot, stalled_theta, stalled_thetadot, notsteady_theta, notsteady_thetadot
 
 
-# #plotting state space code
-# limitcycle_theta, limitcycle_thetadot, stalled_theta, stalled_thetadot, notsteady_theta, notsteady_thetadot = RegionOfAttraction(gamma, spoke_number)
+#plotting state space code
+limitcycle_theta, limitcycle_thetadot, stalled_theta, stalled_thetadot, notsteady_theta, notsteady_thetadot = RegionOfAttraction(gamma, spoke_number)
 
-# plt.close('all')
-# plt.figure()
-# plt.plot(limitcycle_theta, limitcycle_thetadot, 'go', label="Limit Cycle")
-# plt.plot(stalled_theta, stalled_thetadot, 'ro', label="Stalled")
-# plt.plot(notsteady_theta, notsteady_thetadot, 'bo', label="Not yet steady state")
-# plt.xlabel("Initial Angle (radians)")
-# plt.ylabel("Initial Angular Velocity (rad/s)")
-# plt.title("Rimless Wheel State Space")
-# plt.legend()
-# plt.tight_layout()
-# plt.show()
+plt.close('all')
+plt.figure()
+plt.plot(limitcycle_theta, limitcycle_thetadot, 'go', label="Limit Cycle")
+plt.plot(stalled_theta, stalled_thetadot, 'ro', label="Stalled")
+plt.plot(notsteady_theta, notsteady_thetadot, 'bo', label="Not yet steady state")
+plt.xlabel("Initial Angle (radians)")
+plt.ylabel("Initial Angular Velocity (rad/s)")
+plt.title("Rimless Wheel State Space")
+plt.legend()
+plt.tight_layout()
+plt.show()
 
-# #velocities sanity check
-# test_initial_state = np.array([0, 2]) #showed green
-# test_time_traj, test_state_traj, test_steady_state_behavior, test_switch_angular_velocity = singlesim(spoke_number, gamma, length, test_initial_state, sim_time)
-# print("Switch velocities [0,2]:", test_switch_angular_velocity)
+#velocities sanity check
+test_initial_state = np.array([0, 2]) #showed green
+test_time_traj, test_state_traj, test_steady_state_behavior, test_switch_angular_velocity = singlesim(spoke_number, gamma, length, test_initial_state, sim_time)
+print("Switch velocities [0,2]:", test_switch_angular_velocity)
 
-# #extra sanity check for stalled points
-# print("Points at which stalling occurred:")
-# print(np.array([stalled_theta, stalled_thetadot]).T)
+#extra sanity check for stalled points
+print("Points at which stalling occurred:")
+print(np.array([stalled_theta, stalled_thetadot]).T)
 
 """
 Part 2: Poincare section
@@ -151,48 +151,48 @@ Part 4: Inclination and Spoke Number Sweep
 inclination_values = np.linspace(0, np.pi/4, 10) # sweep inclination values
 spokenumber_values = np.linspace(6, 12, 7) # sweep spoke number values
 
-# #ROA Sweeps
-# #inclination sweep for ROA
-# ROA_inclination = []
-# for inclination_angle in inclination_values:
-#     #call ROA function per inclination angle
-#     limitcycle_theta, limitcycle_thetadot, stalled_theta, stalled_thetadot, notsteady_theta, notsteady_thetadot = RegionOfAttraction(inclination_angle, 8)
-#     # find how many total points there are by adding lengths of each behavior list
-#     total_points = len(limitcycle_theta) + len(stalled_theta) + len(notsteady_theta)
-#     limitcycle_points = len(limitcycle_theta) # just limit cycle points
-#     ROA_ratio= limitcycle_points/total_points
-#     ROA_inclination.append(ROA_ratio)
+#ROA Sweeps
+#inclination sweep for ROA
+ROA_inclination = []
+for inclination_angle in inclination_values:
+    #call ROA function per inclination angle
+    limitcycle_theta, limitcycle_thetadot, stalled_theta, stalled_thetadot, notsteady_theta, notsteady_thetadot = RegionOfAttraction(inclination_angle, 8)
+    # find how many total points there are by adding lengths of each behavior list
+    total_points = len(limitcycle_theta) + len(stalled_theta) + len(notsteady_theta)
+    limitcycle_points = len(limitcycle_theta) # just limit cycle points
+    ROA_ratio= limitcycle_points/total_points
+    ROA_inclination.append(ROA_ratio)
 
-# plt.close('all')
-# plt.figure()
-# plt.plot(inclination_values, ROA_inclination, label = "RoA Change with Inclination")
-# plt.xlabel("Inclination Angle (radians)")
-# plt.ylabel("RoA Ratio")
-# plt.title("RoA Ratio with Inclination")
-# plt.legend()
-# plt.tight_layout()
-# plt.show()
+plt.close('all')
+plt.figure()
+plt.plot(inclination_values, ROA_inclination, label = "RoA Change with Inclination")
+plt.xlabel("Inclination Angle (radians)")
+plt.ylabel("RoA Ratio")
+plt.title("RoA Ratio with Inclination")
+plt.legend()
+plt.tight_layout()
+plt.show()
 
-# #spoke number sweep for ROA
-# ROA_spokenumber = []
-# for spoke_number in spokenumber_values:
-#     #call ROA function per spoke number
-#     limitcycle_theta, limitcycle_thetadot, stalled_theta, stalled_thetadot, notsteady_theta, notsteady_thetadot = RegionOfAttraction(np.pi/16, spoke_number)
-#     # find how many total points there are by adding lengths of each behavior list
-#     total_points = len(limitcycle_theta) + len(stalled_theta) + len(notsteady_theta)
-#     limitcycle_points = len(limitcycle_theta) # just limit cycle points
-#     ROA_ratio= limitcycle_points/total_points
-#     ROA_spokenumber.append(ROA_ratio)
+#spoke number sweep for ROA
+ROA_spokenumber = []
+for spoke_number in spokenumber_values:
+    #call ROA function per spoke number
+    limitcycle_theta, limitcycle_thetadot, stalled_theta, stalled_thetadot, notsteady_theta, notsteady_thetadot = RegionOfAttraction(np.pi/16, spoke_number)
+    # find how many total points there are by adding lengths of each behavior list
+    total_points = len(limitcycle_theta) + len(stalled_theta) + len(notsteady_theta)
+    limitcycle_points = len(limitcycle_theta) # just limit cycle points
+    ROA_ratio= limitcycle_points/total_points
+    ROA_spokenumber.append(ROA_ratio)
 
-# plt.close('all')
-# plt.figure()
-# plt.plot(spokenumber_values, ROA_spokenumber, label = "RoA Change with Spoke Number")
-# plt.xlabel("Spoke Number")
-# plt.ylabel("RoA Ratio")
-# plt.title("RoA Ratio with Spoke Number")
-# plt.legend()
-# plt.tight_layout()
-# plt.show()
+plt.close('all')
+plt.figure()
+plt.plot(spokenumber_values, ROA_spokenumber, label = "RoA Change with Spoke Number")
+plt.xlabel("Spoke Number")
+plt.ylabel("RoA Ratio")
+plt.title("RoA Ratio with Spoke Number")
+plt.legend()
+plt.tight_layout()
+plt.show()
 
 #FLOQUET SWEEPS
 #inclination sweep for floquet
