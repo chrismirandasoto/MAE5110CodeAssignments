@@ -3,7 +3,7 @@ Code for plotting trajectories.
 """
 import numpy as np
 import matplotlib.pyplot as plt
-from a1_rimlesswheel_sim import singlesim
+from assignment_1 import singlesim
 
 #simulation parameters
 spoke_number = 8 #number of spokes N
