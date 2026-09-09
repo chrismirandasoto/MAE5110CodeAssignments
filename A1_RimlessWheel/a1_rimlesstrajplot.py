@@ -11,7 +11,7 @@ gamma = np.pi/16 #angle of slope in radians
 alpha = (2*np.pi/spoke_number)/2 #angle between adjacent spokes in radians
 length = 1 #length of the spokes in meters
 gravity = 9.81 #acceleration due to gravity in m/s^2
-initial_state = np.array([2, -1]) #Angle, Angular velocity
+initial_state = np.array([.5, -1]) #Angle, Angular velocity
 sim_time = 10.0
 
 #run function for plotting
