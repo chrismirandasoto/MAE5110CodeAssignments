@@ -101,7 +101,7 @@ Part 1: Region of Attraction for rimless wheel
 #function for creating a region of attraction for a range (does not include plotting)
 def RegionOfAttraction(gamma, spoke_number):
     #Creating state space for rimless wheel initial conditions
-    state_space_range = 10 #higher = more resolution but more runtime
+    state_space_range = 20 #higher = more resolution but more runtime
     theta_range = np.linspace(-alpha + gamma, alpha + gamma, state_space_range)
     thetadot_range = np.linspace(-3, 3, state_space_range)
 
@@ -141,6 +141,7 @@ plt.ylabel("Initial Angular Velocity (rad/s)")
 plt.title("Rimless Wheel State Space")
 plt.legend()
 plt.tight_layout()
+plt.savefig("RoA.png", dpi=150, bbox_inches='tight')
 plt.show()
 
 # SANITY CHECKS
@@ -161,27 +162,39 @@ poincare_initial_state = np.array([1, 2])
 
 plt.figure()
 time_traj, state_traj, steady_state_behavior, switch_angular_velocity = singlesim(spoke_number, gamma, length, poincare_initial_state, 10)
-if len(switch_angular_velocity) > 1: # can't do poincare with less than 2 values
-    thetadot_n = switch_angular_velocity[:-1] #start at the first switch and go to the second to last switch
-    thetadot_next = switch_angular_velocity[1:] #start at the second switch and go to the last switch
-    #plotting return map
-    plt.scatter(thetadot_n, thetadot_next, label="Return map")
+
+if len(switch_angular_velocity) > 1:  # can't do poincare with less than 2 values
+    thetadot_n = switch_angular_velocity[:-1] #grabs values from first to second to last index
+    thetadot_next = switch_angular_velocity[1:] #starts at second index then goes to last
+
+    # plotting return map (regular points)
+    plt.scatter(thetadot_n, thetadot_next, label="Return map", color='tab:blue', zorder=2)
+
+    # mark fixed points
+    fixed_point_value = []
+    for n in range(len(thetadot_n)):
+        if np.isclose(thetadot_next[n], thetadot_n[n], rtol=0.0001) == True: #check if hit line
+            fixed_point_value.append(thetadot_n[n])
+            break #only take first fixed point, rest are repetitive
+    #distinguish fixed points with gold star
+    plt.scatter(fixed_point_value, fixed_point_value, color='gold', edgecolor='black',
+                marker='*', s=250, label="Fixed point", zorder=3)
 
 # line with slope 1
 if len(switch_angular_velocity) < 2:
-    xvals = np.linspace(0, 2, 100) #random slope 1 line if no points
+    xvals = np.linspace(0, 2, 100)
 else:
-    xvals = np.linspace(min(thetadot_n), max(thetadot_n), 100) #identity line
+    xvals = np.linspace(min(thetadot_n), max(thetadot_n), 100)
 yvals = xvals
-plt.plot(xvals, yvals, 'r-', label="Identity Line")
+plt.plot(xvals, yvals, 'r-', label="Identity Line", zorder=1)
 
 #labels
 plt.xlabel("theta_dot_n")
 plt.ylabel("theta_dot_n+1")
 plt.title("Poincare Return Map")
 plt.legend()
+plt.savefig("poincare_returnmap.png", dpi=150, bbox_inches='tight')
 plt.show()
-
 # #find exact fixed point values
 # for n in range(len(thetadot_n)):
 #     if np.isclose(thetadot_next[n], thetadot_n[n], rtol=0.0001) == True:
@@ -253,6 +266,7 @@ plt.ylabel("RoA Ratio")
 plt.title("RoA Ratio with Inclination")
 plt.legend()
 plt.tight_layout()
+plt.savefig("roa_inclination.png", dpi=150, bbox_inches='tight')
 plt.show()
 
 #spoke number sweep for ROA
@@ -274,6 +288,7 @@ plt.ylabel("RoA Ratio")
 plt.title("RoA Ratio with Spoke Number")
 plt.legend()
 plt.tight_layout()
+plt.savefig("roa_spokenumber.png", dpi=150, bbox_inches='tight')
 plt.show()
 
 #FLOQUET SWEEPS
@@ -290,6 +305,7 @@ plt.ylabel("Floquet Multiplier")
 plt.title("Floquet Change with Inclination")
 plt.legend()
 plt.tight_layout()
+plt.savefig("floquet_inclination.png", dpi=150, bbox_inches='tight')
 plt.show()
 
 #spoke number sweep for floquet
@@ -305,6 +321,7 @@ plt.ylabel("Floquet Multiplier")
 plt.title("Floquet Change with Spoke Number")
 plt.legend()
 plt.tight_layout()
+plt.savefig("floquet_spokenumber.png", dpi=150, bbox_inches='tight')
 plt.show()
 
 
