@@ -1,12 +1,92 @@
+"""
+Assignment 1 Instructions:
+
+This code contains everything needed for assignment 1, separated in labeled Parts 1 through 4 as
+well as an initial function defintion for running the dynamics of the rimless wheel. Most parts are defined
+in functions with the exception of plotting the graphs for the parts and some small sanity
+checks that I used while coding which are currently commented.
+
+If uncommented, this code will produce the following graphs:
+
+- Region of attraction -> can change sim_time, range, resolution (resolution small for now for RoA graph runtime)
+- Poincare Section Return Map from a random initial state that I chose
+- 4 graphs (RoA ones can take several minutes) of RoA vs Inclination, RoA vs Spoke #,
+Floquet vs Inclination, and Floquet vs Spoke #
+
+"""
+
 #import necessary libraries
 import numpy as np
 import matplotlib.pyplot as plt
-from a1_rimlesswheel_sim import singlesim
 
 """
-Part 1: Region of Attraction for rimless wheel
+Rimless wheel dynamics and simulation function
 """
-#default variables for rimless wheel simulation
+#dynamics of spokes (treat as inverted pendulum)
+def spoke_dynamics(theta, theta_dot, length, gravity):
+    #eom for inverted pendulum
+    theta_ddot = (gravity / length) * np.sin(theta)
+    return np.array([theta_dot, theta_ddot])
+
+#function to run a timed simulation of the rimless wheel's motion with the following paramters
+def singlesim(spoke_number, gamma, length, initial_state, sim_time):
+
+    #pre-defined variables
+    alpha = (2*np.pi/spoke_number)/2 #angle between adjacent spokes in radians
+    gravity = 9.81 #acceleration due to gravity in m/s^2
+
+    #initialize variables
+    state_traj = np.zeros((2, 1))
+    state_traj[:, 0] = initial_state
+    switch_angular_velocity = []  # tracks angular velocity at switchs over time
+    steady_state_behavior = None #initialize steady state behavior variable
+    step = 0
+    t = 0
+    time_traj = [t]
+
+    #simulation loop including switch between spokes
+    while t < sim_time:
+        #better time efficiency by switching timestep
+        if abs(state_traj[0,step] - (alpha+gamma)) < 0.05: #within .05 rads of switch
+            timestep = 1e-5 #smaller timestep for more accurate switch
+        else:
+            timestep = 1e-2 #larger timestep for faster simulation
+
+        #change dynamics if stance spoke switch
+        if state_traj[0, step] >= alpha + gamma: #switch spoke condition at angle = alpha + gamma
+            state_traj[0, step] -= 2 * alpha  # make angle -alpha + gamma
+            state_traj[1, step] *= np.cos(2 * alpha)  # change angular velocity
+            switch_angular_velocity.append(state_traj[1, step])  # store angular velocity after switch
+            #
+            if len(switch_angular_velocity) > 1 and np.isclose(switch_angular_velocity[-1], switch_angular_velocity[-2], rtol=0.01):
+                        steady_state_behavior = "Limit Cycle"
+                        #break #uncomment if want to save time by stopping sim when steady state reached
+                        # warning: will reduce datapoints in return map
+
+        #update state using explicit euler method
+        state_dot = spoke_dynamics(state_traj[0, step], state_traj[1, step], length, gravity)
+        new_state = state_traj[:, step] + timestep * state_dot
+        state_traj = np.column_stack((state_traj, new_state))
+
+        #go to next time step
+        t += timestep
+        step += 1
+        time_traj.append(t)
+
+    #other cases for not limit cycle
+    if steady_state_behavior != "Limit Cycle":
+        if len(switch_angular_velocity) > 1:
+            steady_state_behavior = "Not yet steady state" #assume less than 2 switch = stalled
+        else:
+            steady_state_behavior = "Stalled"
+
+    #return time and state trajectories, steady state behavior (Limit cycle, Not yet steady state, Stalled)
+    #and the angular velocities after each spoke switch
+    return time_traj, state_traj, steady_state_behavior, switch_angular_velocity
+
+"""
+Default Variables Used (unless changed for specific function/task)
+"""
 #time_traj, state_traj, steady_state_behavior = singlesim(spoke_number, gamma, length, initial_state, sim_time)
 spoke_number = 8 #number of spokes N
 gamma = np.pi/16 #angle of slope in radians
@@ -14,10 +94,14 @@ alpha = (2*np.pi/spoke_number)/2 #angle between adjacent spokes in radians
 length = 1 #length of the spokes in meters
 sim_time = 5
 
+"""
+Part 1: Region of Attraction for rimless wheel
+"""
 
+#function for creating a region of attraction for a range (does not include plotting)
 def RegionOfAttraction(gamma, spoke_number):
     #Creating state space for rimless wheel initial conditions
-    state_space_range = 20
+    state_space_range = 10 #higher = more resolution but more runtime
     theta_range = np.linspace(-alpha + gamma, alpha + gamma, state_space_range)
     thetadot_range = np.linspace(-3, 3, state_space_range)
 
@@ -47,7 +131,6 @@ def RegionOfAttraction(gamma, spoke_number):
 
 #plotting state space code
 limitcycle_theta, limitcycle_thetadot, stalled_theta, stalled_thetadot, notsteady_theta, notsteady_thetadot = RegionOfAttraction(gamma, spoke_number)
-
 plt.close('all')
 plt.figure()
 plt.plot(limitcycle_theta, limitcycle_thetadot, 'go', label="Limit Cycle")
@@ -60,21 +143,20 @@ plt.legend()
 plt.tight_layout()
 plt.show()
 
-#velocities sanity check
-test_initial_state = np.array([0, 2]) #showed green
-test_time_traj, test_state_traj, test_steady_state_behavior, test_switch_angular_velocity = singlesim(spoke_number, gamma, length, test_initial_state, sim_time)
-print("Switch velocities [0,2]:", test_switch_angular_velocity)
+# SANITY CHECKS
+# #velocities sanity check
+# test_initial_state = np.array([0, 2]) #showed green
+# test_time_traj, test_state_traj, test_steady_state_behavior, test_switch_angular_velocity = singlesim(spoke_number, gamma, length, test_initial_state, sim_time)
+# print("Switch velocities [0,2]:", test_switch_angular_velocity)
 
-#extra sanity check for stalled points
-print("Points at which stalling occurred:")
-print(np.array([stalled_theta, stalled_thetadot]).T)
+# #extra sanity check for stalled points
+# print("Points at which stalling occurred:")
+# print(np.array([stalled_theta, stalled_thetadot]).T)
 
 """
-Part 2: Poincare section
+Part 2: Poincare section return map
 """
-# Poincare return map
-
-#chose limit cycle initial condition area
+#limit cycle initial condition area, can choose any
 poincare_initial_state = np.array([1, 2])
 
 plt.figure()
