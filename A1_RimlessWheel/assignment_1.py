@@ -28,7 +28,18 @@ def spoke_dynamics(theta, theta_dot, length, gravity):
     theta_ddot = (gravity / length) * np.sin(theta)
     return np.array([theta_dot, theta_ddot])
 
-#function to run a timed simulation of the rimless wheel's motion with the following paramters
+#use runge-kutta to calculate next state
+def rk4_step(theta, theta_dot, timestep, length, gravity):
+    state = np.array([theta, theta_dot])
+    # k vals
+    k1 = spoke_dynamics(state[0], state[1], length, gravity)
+    k2 = spoke_dynamics(state[0] + 0.5*timestep*k1[0], state[1] + 0.5*timestep*k1[1], length, gravity)
+    k3 = spoke_dynamics(state[0] + 0.5*timestep*k2[0], state[1] + 0.5*timestep*k2[1], length, gravity)
+    k4 = spoke_dynamics(state[0] + timestep*k3[0], state[1] + timestep*k3[1], length, gravity)
+    new_state = state + (timestep/6.0) * (k1 + 2*k2 + 2*k3 + k4)
+    return new_state
+
+#function to run a timed simulation of the rimless wheel's motion with the following parameters
 def singlesim(spoke_number, gamma, length, initial_state, sim_time):
 
     #pre-defined variables
@@ -63,9 +74,8 @@ def singlesim(spoke_number, gamma, length, initial_state, sim_time):
                         #break #uncomment if want to save time by stopping sim when steady state reached
                         # warning: will reduce datapoints in return map
 
-        #update state using explicit euler method
-        state_dot = spoke_dynamics(state_traj[0, step], state_traj[1, step], length, gravity)
-        new_state = state_traj[:, step] + timestep * state_dot
+        #update state using RK4 method
+        new_state = rk4_step(state_traj[0, step], state_traj[1, step], timestep, length, gravity)
         state_traj = np.column_stack((state_traj, new_state))
 
         #go to next time step
@@ -100,6 +110,8 @@ Part 1: Region of Attraction for rimless wheel
 
 #function for creating a region of attraction for a range (does not include plotting)
 def RegionOfAttraction(gamma, spoke_number):
+    #recalculate alpha
+    alpha = (2*np.pi/spoke_number)/2 #angle between adjacent spokes in radians
     #Creating state space for rimless wheel initial conditions
     state_space_range = 20 #higher = more resolution but more runtime
     theta_range = np.linspace(-alpha + gamma, alpha + gamma, state_space_range)
@@ -173,7 +185,7 @@ if len(switch_angular_velocity) > 1:  # can't do poincare with less than 2 value
     # mark fixed points
     fixed_point_value = []
     for n in range(len(thetadot_n)):
-        if np.isclose(thetadot_next[n], thetadot_n[n], rtol=0.0001) == True: #check if hit line
+        if np.isclose(thetadot_next[n], thetadot_n[n], rtol=0.0001): #check if hit line
             fixed_point_value.append(thetadot_n[n])
             break #only take first fixed point, rest are repetitive
     #distinguish fixed points with gold star
@@ -197,7 +209,7 @@ plt.savefig("poincare_returnmap.png", dpi=150, bbox_inches='tight')
 plt.show()
 # #find exact fixed point values
 # for n in range(len(thetadot_n)):
-#     if np.isclose(thetadot_next[n], thetadot_n[n], rtol=0.0001) == True:
+#     if np.isclose(thetadot_next[n], thetadot_n[n], rtol=0.0001):
 #         print("Fixed point found at theta_dot =", thetadot_n[n])
 
 """
