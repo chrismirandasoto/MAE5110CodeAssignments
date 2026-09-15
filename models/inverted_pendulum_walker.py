@@ -7,27 +7,50 @@ of those functions; it draws a supplied state without advancing the simulation.
 import matplotlib.pyplot as plt
 import numpy as np
 
-
 def generate_params():
-    pass
+    params = {
+    "gravity": 9.81,  # m/s^2
+    "length": 1.0,  # m
+    "mass": 1.0,  # kg
+    "incline": 0.06,  # rad
+    "angle_of_attack": np.pi / 8,  # rad
+    "ankle_torque": 0.0,  # N m
+    }
+
+    return params
 
 
 def dynamics(t, state, params):
     # TODO: implement the state derivative.
-    return np.array([0.0, 0.0])
+    theta = state[0]
+    theta_dot= state[1]
+    length = params["length"]
+    gravity = params["gravity"]
+    theta_double_dot = (gravity / length) * np.sin(theta) #eom for inverted pendulum
+    return np.array([theta_dot, theta_double_dot])
 
 
-def event_guard(previous_state, next_state, params):
-    pass
+def event_guard(previous_state, next_state, params): #TRUE if forward switch spoke
+    touchdown_angle = params["incline"] + params["angle_of_attack"] #gamma + alpha
+    return previous_state[0] > touchdown_angle  <= next_state[0]
 
 
 def event_dynamics(state, params):
-    pass
+    incline, angle_of_attack = params["incline"], params["angle_of_attack"]
+    #reset angle to alpha-gamma, angular velocity changed
+    return np.array([incline - angle_of_attack, np.cos(2 * angle_of_attack) * state[1]])
 
 
 def calculate_energy(state, params):
-    pass
-
+    length = params["length"]
+    mass = params["mass"]
+    gravity = params["gravity"]
+    theta = state[0]
+    theta_dot = state[1]
+    kinetic_energy = 0.5 * mass * length**2 * theta_dot**2
+    potential_energy = mass * gravity * length * np.cos(theta)  # hub height above stance foot
+    total_energy = kinetic_energy + potential_energy
+    return total_energy
 
 def visualize(
     state,
