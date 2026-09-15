@@ -23,11 +23,11 @@ def generate_params():
 def dynamics(t, state, params):
     # TODO: implement the state derivative.
     theta = state[0]
-    theta_dot= state[1]
+    angular_velocity= state[1]
     length = params["length"]
     gravity = params["gravity"]
-    theta_double_dot = (gravity / length) * np.sin(theta) #eom for inverted pendulum
-    return np.array([theta_dot, theta_double_dot])
+    angular_acceleration = (gravity / length) * np.sin(theta) #eom for inverted pendulum
+    return np.array([angular_velocity, angular_acceleration])
 
 
 def event_guard(previous_state, next_state, params): #TRUE if forward switch spoke
@@ -46,8 +46,8 @@ def calculate_energy(state, params):
     mass = params["mass"]
     gravity = params["gravity"]
     theta = state[0]
-    theta_dot = state[1]
-    kinetic_energy = 0.5 * mass * length**2 * theta_dot**2
+    angular_velocity = state[1]
+    kinetic_energy = 0.5 * mass * length**2 * angular_velocity**2
     potential_energy = mass * gravity * length * np.cos(theta)  # hub height above stance foot
     total_energy = kinetic_energy + potential_energy
     return total_energy
