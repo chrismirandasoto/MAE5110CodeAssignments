@@ -49,7 +49,7 @@ def singlesim(spoke_number, gamma, length, initial_state, sim_time):
     #initialize variables
     state_traj = np.zeros((2, 1))
     state_traj[:, 0] = initial_state
-    switch_angular_velocity = []  # tracks angular velocity at switchs over time
+    switch_angular_velocity_forward = []  # tracks angular velocity at switches forward
     steady_state_behavior = None #initialize steady state behavior variable
     step = 0
     t = 0
@@ -58,21 +58,20 @@ def singlesim(spoke_number, gamma, length, initial_state, sim_time):
     #simulation loop including switch between spokes
     while t < sim_time:
         #better time efficiency by switching timestep
-        if abs(state_traj[0,step] - (alpha+gamma)) < 0.05: #within .05 rads of switch
-            timestep = 1e-5 #smaller timestep for more accurate switch
+        if abs((alpha+gamma) - state_traj[0,step]) < 0.05 or abs((-alpha+gamma) - state_traj[0,step]) < 0.05:
+            #within .05 rads of switch back or forward
+            timestep = 1e-4 #smaller timestep for more accurate switch
         else:
             timestep = 1e-2 #larger timestep for faster simulation
 
-        #change dynamics if stance spoke switch
-        if state_traj[0, step] >= alpha + gamma: #switch spoke condition at angle = alpha + gamma
-            state_traj[0, step] -= 2 * alpha  # make angle -alpha + gamma
+        #change dynamics if stance spoke switch forward
+        if state_traj[0, step] >= (alpha + gamma) and state_traj[1, step] > 0: #switch spoke condition at angle = alpha + gamma
+            state_traj[0, step] = -alpha + gamma  # make angle -alpha + gamma
             state_traj[1, step] *= np.cos(2 * alpha)  # change angular velocity
-            switch_angular_velocity.append(state_traj[1, step])  # store angular velocity after switch
-            #
-            if len(switch_angular_velocity) > 1 and np.isclose(switch_angular_velocity[-1], switch_angular_velocity[-2], rtol=0.01):
-                        steady_state_behavior = "Limit Cycle"
-                        #break #uncomment if want to save time by stopping sim when steady state reached
-                        # warning: will reduce datapoints in return map
+            switch_angular_velocity_forward.append(state_traj[1, step])  # store angular velocity after switch
+        # elif state_traj[0, step] <= -alpha + gamma and state_traj[1, step] < -0.05:
+        #     state_traj[0, step] = alpha + gamma
+        #     state_traj[1, step] *= np.cos(2 * alpha)
 
         #update state using RK4 method
         new_state = rk4_step(state_traj[0, step], state_traj[1, step], timestep, length, gravity)
@@ -83,16 +82,19 @@ def singlesim(spoke_number, gamma, length, initial_state, sim_time):
         step += 1
         time_traj.append(t)
 
+    #check if limit cycle
+    if len(switch_angular_velocity_forward) > 1 and np.isclose(switch_angular_velocity_forward[-1], switch_angular_velocity_forward[-2], rtol=0.01):
+        steady_state_behavior = "Limit Cycle"
     #other cases for not limit cycle
-    if steady_state_behavior != "Limit Cycle":
-        if len(switch_angular_velocity) > 1:
+    else:
+        if len(switch_angular_velocity_forward) > 1:
             steady_state_behavior = "Not yet steady state" #assume less than 2 switch = stalled
         else:
             steady_state_behavior = "Stalled"
 
     #return time and state trajectories, steady state behavior (Limit cycle, Not yet steady state, Stalled)
     #and the angular velocities after each spoke switch
-    return time_traj, state_traj, steady_state_behavior, switch_angular_velocity
+    return time_traj, state_traj, steady_state_behavior, switch_angular_velocity_forward
 
 """
 Default Variables Used (unless changed for specific function/task)
@@ -102,7 +104,23 @@ spoke_number = 8 #number of spokes N
 gamma = np.pi/16 #angle of slope in radians
 alpha = (2*np.pi/spoke_number)/2 #angle between adjacent spokes in radians
 length = 1 #length of the spokes in meters
-sim_time = 5
+sim_time = 8
+initial_state= [.5, -3]
+
+#SINGLE SIM SANITY CHECK
+# Run a single simulation
+time_traj, state_traj, steady_state_behavior, switch_angular_velocity = singlesim(spoke_number,
+                gamma, length,initial_state, sim_time)
+# print(steady_state_behavior)
+# print(len(switch_angular_velocity))
+plt.figure()
+plt.plot(time_traj, state_traj[0, :], label="Theta")
+plt.xlabel("Time (s)")
+plt.ylabel("angle")
+plt.title("Rimless Wheel Single Simulation")
+plt.legend()
+plt.grid()
+plt.show()
 
 """
 Part 1: Region of Attraction for rimless wheel
@@ -115,7 +133,7 @@ def RegionOfAttraction(gamma, spoke_number):
     #Creating state space for rimless wheel initial conditions
     state_space_range = 20 #higher = more resolution but more runtime
     theta_range = np.linspace(-alpha + gamma, alpha + gamma, state_space_range)
-    thetadot_range = np.linspace(-3, 3, state_space_range)
+    thetadot_range = np.linspace(-8, 2, state_space_range)
 
     #make empty lists to store when limit cycle or stall
     limitcycle_theta = []
@@ -335,8 +353,4 @@ plt.legend()
 plt.tight_layout()
 plt.savefig("floquet_spokenumber.png", dpi=150, bbox_inches='tight')
 plt.show()
-
-
-
-
 
