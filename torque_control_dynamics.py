@@ -3,6 +3,8 @@ from pathlib import Path
 
 import matplotlib.pyplot as plt
 import numpy as np
+from matplotlib.patches import Patch
+
 
 from models import inverted_pendulum_walker as model
 
@@ -114,6 +116,8 @@ def simulate_walker_with_control(state, params, RoA_space, thetas, angular_veloc
     controller_on = False
     reset_angle = params["incline"] - params["angle_of_attack"] #back wall of this stance
     outcome = "timeout"
+    switch_states = [] #state right before each spoke switch
+    switch_times = [] #time of each spoke switch
 
     for step in range(int(sim_time / time_step)):
         #check if in RoA unless already in and controller is on
@@ -128,6 +132,8 @@ def simulate_walker_with_control(state, params, RoA_space, thetas, angular_veloc
         #can only stall if controller not on and not in RoA
         if not controller_on:
             if model.event_guard(state, new_state, params): #switches spoke forward
+                switch_states.append(new_state.copy()) #record switches
+                switch_times.append((step + 1) * time_step)
                 new_state = model.event_dynamics(new_state, params)
                 reset_angle = params["incline"] - params["angle_of_attack"]
             elif new_state[0] < reset_angle: #rolled back past the stance foot
@@ -144,22 +150,75 @@ def simulate_walker_with_control(state, params, RoA_space, thetas, angular_veloc
         time_traj.append((step + 1) * time_step)
 
     params["ankle_torque"] = 0.0 #reset for the next run
-    return np.array(time_traj), np.array(state_traj), outcome
+    return np.array(time_traj), np.array(state_traj), outcome, np.array(switch_times), np.array(switch_states)
 
+#test simulate walker code
 params = model.generate_params()
 thetas, angular_velocities, RoA_space = create_RoA(params) #build once
 
-time_traj, state_traj, outcome = simulate_walker_with_control(
-    [0, 2.0], params, RoA_space, thetas, angular_velocities)
+start_state = [0.0, 2.0]
+time_traj, state_traj, outcome, switch_times, switch_states = simulate_walker_with_control(
+    start_state, params, RoA_space, thetas, angular_velocities)
 print(outcome)
+print(f"switched spokes {len(switch_times)} times")
 
-plt.pcolormesh(thetas, angular_velocities, RoA_space.T, shading="nearest", cmap="Blues")
-plt.plot(state_traj[:, 0], state_traj[:, 1], lw=1)
-plt.xlabel(r"$\theta$ [rad]")
-plt.ylabel(r"$\dot{\theta}$ [rad/s]")
+fig, ax = plt.subplots(figsize=(9, 6))
+
+#RoA background (drawn under everything else)
+ax.pcolormesh(thetas, angular_velocities, RoA_space.T, shading="nearest",
+            cmap="Blues", vmin=0, vmax=2, zorder=0) #vmax=2 keeps the band a light blue
+
+#stance walls for the alpha used in this run
+theta_reset = params["incline"] - params["angle_of_attack"]
+theta_strike = params["incline"] + params["angle_of_attack"]
+ax.axvline(theta_reset, color="tab:blue", ls="--", lw=1, label=r"reset wall $\gamma-\alpha$")
+ax.axvline(theta_strike, color="tab:red", ls="--", lw=1, label=r"heelstrike wall $\gamma+\alpha$")
+
+#trajectory: split at each impact so the jump isn't drawn as a normal path
+jump_indices = np.where(np.abs(np.diff(state_traj[:, 0])) > 0.2)[0] #theta jumps back at each impact
+for k, segment in enumerate(np.split(state_traj, jump_indices + 1)):
+    ax.plot(segment[:, 0], segment[:, 1], lw=1.4, color="dimgray", zorder=2,
+            label="stance" if k == 0 else None)
+#impact jumps: from the heelstrike state to the reset state, dotted
+for k, idx in enumerate(jump_indices):
+    after = state_traj[idx + 1]
+    ax.plot([switch_states[k, 0], after[0]], [switch_states[k, 1], after[1]],
+            ls=":", lw=1, color="purple", zorder=2, label="impact jump" if k == 0 else None)
+
+#start point: first row of the trajectory
+ax.plot(*state_traj[0], "o", color="black", markersize=6, label="start", zorder=3)
+
+#spoke switches: mark each heelstrike and number it
+if len(switch_states) > 0:
+    ax.plot(switch_states[:, 0], switch_states[:, 1], "^", color="purple",
+            markersize=8, label="spoke switch", zorder=3)
+    for n, (theta_hit, velocity_hit) in enumerate(switch_states, start=1):
+        ax.annotate(str(n), (theta_hit, velocity_hit), textcoords="offset points",
+                    xytext=(-12, 4), color="purple", fontsize=10)
+
+#end point: last row, marker depends on the outcome
+end_markers = {
+    "standing": dict(marker="o", color="green", markersize=9, label="stabilized"),
+    "fell back": dict(marker="X", color="red", markersize=11, label="failed"),
+    "timeout": dict(marker="s", color="orange", markersize=8, label="timeout"),
+}
+ax.plot(*state_traj[-1], linestyle="none", zorder=4, **end_markers[outcome])
+
+#axes, grid, labels
+ax.axhline(0, color="black", lw=0.6)
+ax.axvline(0, color="black", lw=0.6)
+ax.grid(True, which="major", color="gray", alpha=0.35, lw=0.6)
+ax.minorticks_on()
+ax.grid(True, which="minor", color="gray", alpha=0.15, lw=0.4)
+ax.set_axisbelow(False) #draw the grid on top of the RoA shading
+ax.set_xlim(thetas[0], thetas[-1])
+ax.set_xlabel(r"$\theta$ [rad]")
+ax.set_ylabel(r"$\dot{\theta}$ [rad/s]")
+ax.set_title(rf"Walker from $(\theta_0, \dot\theta_0) = ({start_state[0]:g}, {start_state[1]:g})$: "
+            f"{outcome} after {len(switch_times)} spoke switches")
+handles, labels = ax.get_legend_handles_labels()
+handles.append(Patch(color=plt.cm.Blues(0.5))) #same blue as the band (True = 1 on a 0 to 2 scale)
+labels.append("region of attraction")
+ax.legend(handles, labels, loc="center left", bbox_to_anchor=(1.02, 0.5), frameon=False)
+fig.tight_layout()
 plt.show()
-
-
-
-
-
