@@ -24,16 +24,16 @@ def dynamics(t, state, params):
     # TODO: implement the state derivative.
     theta = state[0]
     angular_velocity= state[1]
+    mass = params["mass"]
     length = params["length"]
     gravity = params["gravity"]
-    angular_acceleration = (gravity / length) * np.sin(theta) #eom for inverted pendulum
+    ankle_torque = params["ankle_torque"]
+    angular_acceleration = (gravity / length) * np.sin(theta) + ankle_torque/(mass * length**2) #eom for inverted pendulum with torque
     return np.array([angular_velocity, angular_acceleration])
-
 
 def event_guard(previous_state, next_state, params): #TRUE if forward switch spoke
     touchdown_angle = params["incline"] + params["angle_of_attack"] #gamma + alpha
-    return previous_state[0] > touchdown_angle  <= next_state[0]
-
+    return previous_state[0] < touchdown_angle  <= next_state[0]
 
 def event_dynamics(state, params):
     incline, angle_of_attack = params["incline"], params["angle_of_attack"]
