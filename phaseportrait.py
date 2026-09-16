@@ -35,6 +35,17 @@ def trace_orbit(theta0, theta_dot0, params, t_max=5.0):
     return sol.y[0], sol.y[1], outcome
 
 
+def section_crossing(th, thd):
+    """Angular velocity where an orbit crosses the Poincare section theta = 0 moving forward.
+    Returns None if the orbit never crosses it."""
+    for i in range(len(th) - 1):
+        if th[i] < 0.0 <= th[i + 1] and thd[i + 1] > 0:
+            #linear interpolation between the two samples on either side of theta = 0
+            frac = (0.0 - th[i]) / (th[i + 1] - th[i])
+            return thd[i] + frac * (thd[i + 1] - thd[i])
+    return None
+
+
 def add_arrow(ax, x, y, color):
     """Small arrow at the middle of a traced orbit to show the direction of flow."""
     i = len(x) // 2
@@ -43,7 +54,7 @@ def add_arrow(ax, x, y, color):
                     arrowprops=dict(arrowstyle="-|>", color=color, lw=1.5, mutation_scale=14))
 
 
-def plot_phase_portrait(params, start_speeds=(0.2, 0.5, 0.8, 1.0, 1.3, 1.8, 2.5)):
+def plot_phase_portrait(params, start_speeds=(0.2, 0.5, 0.8, 1.0, 1.3, 1,4, 1.5, 1.6, 2, 2.5, 3)):
     g, L = params["gravity"], params["length"]
     gamma, alpha = params["incline"], params["angle_of_attack"]
     left, right = gamma - alpha, gamma + alpha
@@ -67,7 +78,11 @@ def plot_phase_portrait(params, start_speeds=(0.2, 0.5, 0.8, 1.0, 1.3, 1.8, 2.5)
     ax.axvspan(th_lim[0], left, color="gray", alpha=0.15)
     ax.axvspan(right, th_lim[1], color="gray", alpha=0.15)
     ax.axvline(left, color="tab:blue", lw=2.5, label=r"$\gamma-\alpha$ (reset)")
-    ax.axvline(right, color="tab:red", lw=2.5, label=r"$\gamma+\alpha$ (heelstrike)")
+    ax.axvline(right, color="tab:red", lw=2.5, label=r"$\gamma+\alpha$ (spoke switch)")
+
+    # Poincare section: theta = 0, crossed moving forward (theta_dot > 0 only)
+    ax.plot([0, 0], [0, thd_lim[1]], color="tab:green", lw=4, alpha=0.6, zorder=1,
+            label=r"Poincaré section $\theta=0,\ \dot\theta>0$")
 
     # traced orbits starting just after impact at theta = gamma - alpha
     colors = plt.cm.viridis(np.linspace(0, 0.9, len(start_speeds)))
@@ -77,6 +92,13 @@ def plot_phase_portrait(params, start_speeds=(0.2, 0.5, 0.8, 1.0, 1.3, 1.8, 2.5)
         ax.plot(th, thd, color=c, lw=2, ls=ls,
                 label=rf"$\dot\theta_0={w0}$ ({outcome})")
         add_arrow(ax, th, thd, c)
+
+        # mark where this orbit crosses the section: that speed is theta_dot_k
+        w_k = section_crossing(th, thd)
+        if w_k is not None:
+            ax.plot(0, w_k, "o", color=c, markersize=8, markeredgecolor="black", zorder=4)
+            ax.annotate(rf"$\dot\theta_k={w_k:.2f}$", (0, w_k), textcoords="offset points",
+                        xytext=(-8, 6), ha="right", fontsize=9)
 
     ax.axhline(0, color="k", lw=0.5)
     ax.axvline(0, color="k", lw=0.5)
