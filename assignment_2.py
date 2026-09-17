@@ -6,6 +6,8 @@ from matplotlib.animation import FuncAnimation, PillowWriter
 
 from models import inverted_pendulum_walker as model
 
+from integrators import rk4
+
 # Fixed controls for this visualization example.
 params = {
     "gravity": 9.81,  # m/s^2
@@ -16,7 +18,80 @@ params = {
     "ankle_torque": 0.0,  # N m
 }
 
-initial_state = np.array([0.0, 3.0])
+def compute_ankle_torque(state, params):
+    theta = state[0]
+    angular_velocity = state[1]
+
+    mass = params["mass"]
+    gravity = params["gravity"]
+    length = params["length"]
+
+    position_gain = 4.0
+    velocity_gain = 4.0
+
+    torque = (
+        -mass * gravity * length * np.sin(theta)
+        -mass * length**2
+        * (position_gain * theta + velocity_gain * angular_velocity)
+    )
+
+    min_torque = -0.1 * mass * gravity * length
+    max_torque = 0.05 * mass * gravity * length
+
+    return np.clip(torque, min_torque, max_torque)
+
+def reaches_standing(initial_state, params, timestep=1e-3, sim_time=5.0):
+    state = initial_state.copy()
+    test_params = params.copy()
+
+    angle_tolerance = 0.005
+    velocity_tolerance = 0.005
+
+    n_steps = int(sim_time / timestep)
+
+    for step in range(n_steps):
+        test_params["ankle_torque"] = compute_ankle_torque(state, test_params)
+        state = rk4(
+            model.dynamics,
+            step * timestep,
+            state,
+            timestep,
+            test_params,
+        )
+
+        # walker has clearly fallen over
+        if abs(state[0]) > np.pi / 2:
+            return False
+
+        if (
+            abs(state[0]) < angle_tolerance
+            and abs(state[1]) < velocity_tolerance
+        ):
+            return True
+
+    return False
+
+
+def compute_roa(params, grid_size=61):
+    angle_values = np.linspace(-0.25, 0.25, grid_size)
+    velocity_values = np.linspace(-1.5, 1.5, grid_size)
+
+    roa = np.zeros((grid_size, grid_size), dtype=bool)
+
+    for velocity_index, angular_velocity in enumerate(velocity_values):
+        for angle_index, theta in enumerate(angle_values):
+            initial_state = np.array([theta, angular_velocity])
+
+            roa[velocity_index, angle_index] = reaches_standing(
+                initial_state,
+                params,
+            )
+
+    return angle_values, velocity_values, roa
+
+
+initial_state = np.array([0.03, 0.0])
+
 timestep = 1e-4
 sim_time = 3.0
 desired_number_of_steps = 3
@@ -30,7 +105,9 @@ completed_steps = 0
 # Simulation loop. Replace this Euler step with your own integrator as needed.
 for step, t in enumerate(time_traj[:-1]):
     state = state_traj[:, step]
-    next_state = state + timestep * model.dynamics(t, state, params)
+
+    params["ankle_torque"] = compute_ankle_torque(state, params)
+    next_state = rk4(model.dynamics, t, state, timestep, params)
 
     if model.event_guard(state, next_state, params):
         next_state = model.event_dynamics(next_state, params)
@@ -69,4 +146,23 @@ animation.save(output / "walker.gif", writer=PillowWriter(fps=fps))
 # To save an MP4 instead, install FFmpeg and use:
 # animation.save(output / "walker.mp4", writer="ffmpeg", fps=fps)
 print(f"Saved {output / 'walker.gif'} ({completed_steps} footstrikes).")
+
+#roa plots
+angle_values, velocity_values, roa = compute_roa(params)
+
+plt.figure(figsize=(7, 5))
+plt.imshow(
+    roa,
+    origin="lower",
+    extent=[
+        angle_values[0],
+        angle_values[-1],
+        velocity_values[0],
+        velocity_values[-1],
+    ],
+    aspect="auto",
+)
+plt.xlabel(r"$\theta$ (rad)")
+plt.ylabel(r"$\dot{\theta}$ (rad/s)")
+plt.title("Ankle Controller Region of Attraction")
 plt.show()
