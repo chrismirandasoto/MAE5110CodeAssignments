@@ -89,6 +89,66 @@ def compute_roa(params, grid_size=61):
 
     return angle_values, velocity_values, roa
 
+def simulate_poincare_step(initial_velocity, alpha, params, timestep=1e-3):
+    test_params = params.copy()
+    test_params["angle_of_attack"] = alpha
+    test_params["ankle_torque"] = 0.0
+
+    state = np.array([0.0, initial_velocity])
+    time = 0.0
+    impact_occurred = False
+
+    max_time = 5.0
+    max_steps = int(max_time / timestep)
+
+    for _ in range(max_steps):
+        next_state = rk4(
+            model.dynamics,
+            time,
+            state,
+            timestep,
+            test_params,
+        )
+
+        if not impact_occurred and model.event_guard(
+            state,
+            next_state,
+            test_params,
+        ):
+            forward_contact = (
+                test_params["incline"]
+                + test_params["angle_of_attack"]
+            )
+
+            # if it hits the backward guard, there is no forward return
+            if next_state[0] < forward_contact:
+                return np.nan
+
+            next_state = model.event_dynamics(
+                next_state,
+                test_params,
+            )
+            impact_occurred = True
+
+        elif impact_occurred:
+            # next crossing of the theta = 0 Poincare section
+            if state[0] < 0.0 and next_state[0] >= 0.0:
+                fraction = -state[0] / (next_state[0] - state[0])
+
+                return (
+                    state[1]
+                    + fraction * (next_state[1] - state[1])
+                )
+
+            # reversed direction before getting back to the section
+            if model.event_guard(state, next_state, test_params):
+                return np.nan
+
+        state = next_state
+        time += timestep
+
+    return np.nan
+
 
 initial_state = np.array([0.03, 0.0])
 
@@ -165,4 +225,25 @@ plt.imshow(
 plt.xlabel(r"$\theta$ (rad)")
 plt.ylabel(r"$\dot{\theta}$ (rad/s)")
 plt.title("Ankle Controller Region of Attraction")
+
+#poincare test
+print("\nPoincare map test")
+
+for alpha in [
+    np.pi / 8,
+    0.5 * (np.pi / 8 + np.pi / 7),
+    np.pi / 7,
+]:
+    next_velocity = simulate_poincare_step(
+        2.0,
+        alpha,
+        params,
+    )
+
+    print(
+        f"alpha = {np.rad2deg(alpha):.2f} deg, "
+        f"omega_k = 2.000 -> "
+        f"omega_k+1 = {next_velocity:.3f}"
+    )
+
 plt.show()
