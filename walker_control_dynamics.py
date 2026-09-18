@@ -4,6 +4,7 @@ import time
 import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.patches import Patch
+from pathlib import Path
 
 from models import inverted_pendulum_walker as model
 
@@ -15,17 +16,22 @@ def rk4_step(state, params, dt):
     k4 = model.dynamics(0, state + dt * k3, params)
     return state + dt / 6 * (k1 + 2 * k2 + 2 * k3 + k4)
 
+#function for finding torque that counteracts current motion
 def calculate_torque(state, params):
     mass, gravity, length = params["mass"], params["gravity"], params["length"]
     theta = state[0]
     angular_velocity = state[1]
+    #torque bounds
     torque_min = -0.1 * mass * gravity * length
     torque_max = 0.05 * mass * gravity * length
-    Kp, Kd = 28.48 , 10.67
+    #PD control variables
+    Kp, Kd = 28.48 , 10.67 #used AI to find good weights
+    # want stability so need correction term and energy loss term
     desired_accel = -Kp * theta - Kd * angular_velocity
     ankle_torque = -mass * gravity * length * np.sin(theta) + mass * length**2 * desired_accel
     return np.clip(ankle_torque, torque_min, torque_max)
 
+#to make RoA, need code to know if walker stabilized in upright
 def simulate_if_stabilized(state, params, time_step=0.005, sim_time=5.0, tol=1e-3):
     for step in range(int(sim_time / time_step)):
         params["ankle_torque"] = calculate_torque(state, params)
@@ -33,11 +39,13 @@ def simulate_if_stabilized(state, params, time_step=0.005, sim_time=5.0, tol=1e-
         theta, angular_velocity = state[0], state[1]
         if theta > params["incline"] + np.pi / 7 or theta < params["incline"] - np.pi / 7:
             return False
+        #theta and angular velocity both very close to zero continually
         if np.abs(theta) < tol and np.abs(angular_velocity) < tol:
             return True
-    return False
+    return False #assume stuck if neither condition triggered
 
-def create_RoA(params, resolution = 80):
+#function to create RoA
+def create_RoA(params, resolution = 90): #90 keeps the band wide enough after the 3x3 trim
     theta_back = params["incline"] - np.pi/7
     theta_front = params["incline"] + np.pi/7
     thetas = np.linspace(theta_back, theta_front, resolution)
@@ -49,6 +57,15 @@ def create_RoA(params, resolution = 80):
     params["ankle_torque"] = 0
     return thetas, angular_velocities, RoA_space #RoA_space[theta_index, velocity_index]
 
+#slices of the RoA through zero speed and through upright, for the report
+def RoA_slices(thetas, angular_velocities, RoA_space):
+    zero_velocity_column = np.argmin(np.abs(angular_velocities))
+    upright_row = np.argmin(np.abs(thetas))
+    thetas_held = thetas[RoA_space[:, zero_velocity_column]]
+    velocities_caught = angular_velocities[RoA_space[upright_row]]
+    return (thetas_held.min(), thetas_held.max()), (velocities_caught.min(), velocities_caught.max())
+
+#check if a state is in RoA based on surrounding grid
 def check_if_in_RoA(state, RoA_space, thetas, angular_velocities):
     theta, angular_velocity = state[0], state[1]
     delta_theta = thetas[1] - thetas[0]
@@ -70,6 +87,7 @@ def choose_alpha(angular_velocity, velocity_values, best_alpha, current_alpha):
         return best_alpha[row]
     return current_alpha #no table entry: keep the current alpha
 
+#simulate walker with torque controller on when in RoA
 def simulate_walker_with_control(state, params, RoA_space, thetas, angular_velocities,
         velocity_values=None, best_alpha=None, time_step=0.005, sim_time=20.0, tol=1e-3):
     params = dict(params) #copy: alpha and torque change during the run
@@ -119,6 +137,7 @@ def simulate_walker_with_control(state, params, RoA_space, thetas, angular_veloc
     return (np.array(time_traj), np.array(state_traj), outcome,
             np.array(switch_times), np.array(switch_states), np.array(alphas_used))
 
+#give status and angualr velocity value of next time traj hits zero
 def find_next_poincare_crossing(thetadot_k, alpha, params, RoA_space, thetas, angular_velocities,
             time_step=0.005, sim_time=5.0):
     params = dict(params)
@@ -205,6 +224,43 @@ def backward_induction(velocity_values, alpha_values, status_table, next_velocit
 
     return steps_to_stand, best_alpha
 
+#longest walk that still ends in the RoA: steps, and the alpha that achieves it
+def longest_walk(velocity_values, alpha_values, status_table, next_velocity_table, steps_to_stand):
+    n = len(velocity_values)
+    delta_velocity = velocity_values[1] - velocity_values[0]
+    max_steps = np.full(n, np.nan)
+    longest_alpha = np.full(n, np.nan)
+
+    def longest(i, visiting=frozenset()):
+        """most steps from row i that still ends in the RoA"""
+        if not np.isnan(max_steps[i]): #already worked out
+            return max_steps[i]
+        if i in visiting: #a cycle would mean walking forever
+            return np.inf
+        if steps_to_stand[i] == 0: #already standing
+            max_steps[i] = 0
+            return 0
+        best, best_alpha_value = -np.inf, np.nan
+        for j in range(len(alpha_values)):
+            if status_table[i, j] == "standing":
+                value = 1
+            elif status_table[i, j] == "next step":
+                landing = int(round((next_velocity_table[i, j] - velocity_values[0]) / delta_velocity))
+                if not (0 <= landing < n) or not np.isfinite(steps_to_stand[landing]):
+                    continue #that landing can never stand, so this alpha isn't allowed
+                value = 1 + longest(landing, visiting | {i})
+            else:
+                continue #fell back or timed out
+            if value > best:
+                best, best_alpha_value = value, alpha_values[j]
+        max_steps[i] = best
+        longest_alpha[i] = best_alpha_value
+        return best
+
+    for i in range(n):
+        longest(i)
+    return max_steps, longest_alpha
+
 
 #one plot: colored regions of initial speeds by how many steps they need
 def plot_steps_to_standstill(velocity_values, steps_to_stand, best_alpha):
@@ -235,7 +291,8 @@ def plot_steps_to_standstill(velocity_values, steps_to_stand, best_alpha):
                 f"{n_steps} step{'s' if n_steps != 1 else ''}\n{speeds.min():.2f}–{speeds.max():.2f}",
                 ha="center", va="bottom", fontsize=9)
 
-    handles = [Patch(color=colors[n], alpha=0.6, label=f"{n} steps") for n in range(max_steps + 1)]
+    handles = [Patch(color=colors[n], alpha=0.6, label=f"{n} step{'s' if n != 1 else ''}")
+            for n in range(max_steps + 1)]
     if np.isinf(steps_to_stand).any():
         handles.append(Patch(color="lightgray", label="no way to stand"))
     ax.legend(handles=handles, loc="lower right")
@@ -313,9 +370,10 @@ def plot_RoA(thetas, angular_velocities, RoA_space):
     return fig
 
 def plot_walker_run(start_state, params, RoA_space, thetas, angular_velocities,
-                    velocity_values=None, best_alpha=None):
+                    velocity_values=None, best_alpha=None, sim_time=20.0):
     time_traj, state_traj, outcome, switch_times, switch_states, alphas_used = simulate_walker_with_control(
-        start_state, params, RoA_space, thetas, angular_velocities, velocity_values, best_alpha)
+        start_state, params, RoA_space, thetas, angular_velocities, velocity_values, best_alpha,
+        sim_time=sim_time)
     print(f"start ({start_state[0]:g}, {start_state[1]:.2f}): {outcome} after {len(switch_times)} spoke switches, alphas {np.round(alphas_used, 3)}")
 
     fig, ax = plt.subplots(figsize=(9, 6))
@@ -375,27 +433,51 @@ def plot_walker_run(start_state, params, RoA_space, thetas, angular_velocities,
 
 
 if __name__ == "__main__":
-    RUN_RESOLUTION_STUDY = True #slow; set False once you've chosen the grid
-
+    RUN_RESOLUTION_STUDY = False #used to find resolution, on false after test
+    Path("figures").mkdir(exist_ok=True) #make the folder if it isn't there
     params = model.generate_params()
     thetas, angular_velocities, RoA_space = create_RoA(params) #build once, reuse everywhere
-    plot_RoA(thetas, angular_velocities, RoA_space)
+    fig = plot_RoA(thetas, angular_velocities, RoA_space)
+    fig.savefig("figures/roa.png", dpi=150, bbox_inches="tight")
+
+    #RoA slices quoted in the report
+    theta_slice, velocity_slice = RoA_slices(thetas, angular_velocities, RoA_space)
+    print(f"RoA at zero speed: theta in [{theta_slice[0]:.3f}, {theta_slice[1]:.3f}] rad")
+    print(f"RoA at upright: theta_dot in [{velocity_slice[0]:.3f}, {velocity_slice[1]:.3f}] rad/s")
 
     #event guard test with fixed alpha
-    plot_walker_run([0.0, 2.0], params, RoA_space, thetas, angular_velocities)
-
+    fig = plot_walker_run([0.0, 2.0], params, RoA_space, thetas, angular_velocities)
+    fig.savefig("figures/walker_fixed_alpha.png", dpi=150, bbox_inches="tight")
     #lookup table and policy
     velocity_values, alpha_values, status_table, next_velocity_table = create_lookup_table(
         params, RoA_space, thetas, angular_velocities, n_velocities=90, n_alphas=15)
     steps_to_stand, best_alpha = backward_induction(
         velocity_values, alpha_values, status_table, next_velocity_table,
         RoA_space, thetas, angular_velocities)
-    plot_steps_to_standstill(velocity_values, steps_to_stand, best_alpha)
+    fig = plot_steps_to_standstill(velocity_values, steps_to_stand, best_alpha)
+    fig.savefig("figures/steps_to_standstill.png", dpi=150, bbox_inches="tight")
+
+    #speed ranges quoted in the report
+    for n_steps in range(int(steps_to_stand[np.isfinite(steps_to_stand)].max()) + 1):
+        speeds = velocity_values[steps_to_stand == n_steps]
+        if len(speeds) > 0:
+            print(f"{n_steps} steps: theta_dot_0 from {speeds.min():.2f} to {speeds.max():.2f} rad/s")
 
     #a start that needs 3 steps, walked with the policy
     three_step_speeds = velocity_values[steps_to_stand == 3]
-    plot_walker_run([0.0, three_step_speeds[len(three_step_speeds) // 2]], params, RoA_space,
+    start_speed = three_step_speeds[len(three_step_speeds) // 2]
+    fig = plot_walker_run([0.0, start_speed], params, RoA_space,
                     thetas, angular_velocities, velocity_values, best_alpha)
+    fig.savefig("figures/three_step_trajectory.png", dpi=150, bbox_inches="tight")
+
+    #longest walk from the same start that still reaches the RoA
+    max_steps, longest_alpha = longest_walk(velocity_values, alpha_values, status_table,
+        next_velocity_table, steps_to_stand)
+    row = int(round((start_speed - velocity_values[0]) / (velocity_values[1] - velocity_values[0])))
+    print(f"from {start_speed:.2f} rad/s: fewest {steps_to_stand[row]:.0f} steps, most {max_steps[row]:.0f} steps")
+    fig = plot_walker_run([0.0, start_speed], params, RoA_space,
+                    thetas, angular_velocities, velocity_values, longest_alpha, sim_time=40.0)
+    fig.savefig("figures/longest_walk.png", dpi=150, bbox_inches="tight")
 
     if RUN_RESOLUTION_STUDY:
         resolution_study(params, RoA_space, thetas, angular_velocities,

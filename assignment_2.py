@@ -16,7 +16,7 @@ params = {
     "ankle_torque": 0.0,  # N m
 }
 
-initial_state = np.array([0.0, -3.0])
+initial_state = np.array([0.0, 3.0])
 timestep = 1e-4
 sim_time = 3.0
 desired_number_of_steps = 3
