@@ -236,4 +236,4 @@ a long stride there leaves too little energy to vault over the new foot and the 
 * `assignment_2.py` — ankle controller, RoA grid search and guard, step map, lookup table,
   backward induction, longest-path search, resolution study, and all figures in this report.
   Set `RUN_RESOLUTION_STUDY = True` to reproduce the table in Section 4.
-* `phase_portrait.py` — stance-phase portrait with the Poincaré section.
+* `phaseportrait.py` — stance-phase portrait with the Poincaré section.
