@@ -70,9 +70,9 @@ def event_dynamics(state, params):
     backward_contact = incline - alpha
 
     if theta >= forward_contact:
-        theta -= 2.0 * alpha
+        theta = backward_contact
     elif theta <= backward_contact:
-        theta += 2.0 * alpha
+        theta = forward_contact
 
     angular_velocity *= np.cos(2.0 * alpha)
 
