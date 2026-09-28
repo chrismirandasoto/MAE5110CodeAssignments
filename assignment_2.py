@@ -152,6 +152,7 @@ def main():
     # ankle controller region of attraction
     roa_angles, roa_velocities, roa = compute_roa(params)
     plot_roa(roa_angles, roa_velocities, roa)
+    plt.savefig(output / "roa.png", dpi=200, bbox_inches="tight")
 
     roa_limit = find_roa_velocity_limit(roa_angles, roa_velocities, roa)
     state_count = choose_state_count(params, roa_limit)
@@ -159,7 +160,7 @@ def main():
     print(f"\nRoA velocity limit at theta = 0: {roa_limit:.3f} rad/s")
     print_grid_check(params, roa_limit, state_count)
     print(f"\nSelected velocity grid: {state_count} states")
-
+    
     # Poincare state-action lookup
     (
         step_velocities,
@@ -183,6 +184,7 @@ def main():
     print(f"valid transitions: {valid}/{next_velocity.size}")
 
     plot_lookup(step_velocities, step_alphas, next_velocity)
+    plt.savefig(output / "poincare_lookup.png", dpi=200, bbox_inches="tight")
 
     section_roa = find_section_roa(
         step_velocities,
@@ -219,6 +221,7 @@ def main():
     print(f"unreachable: {np.count_nonzero(steps_to_stand < 0)} states")
 
     plot_steps_to_stand(step_velocities, steps_to_stand)
+    plt.savefig(output / "steps_to_stand.png", dpi=200, bbox_inches="tight")
 
     # choose a clean 3-step example
     test_index, min_states, min_footstrikes = find_test_state(
@@ -240,6 +243,7 @@ def main():
     print("reached standing: True")
 
     plot_recovery(min_states, recovery_velocity, "Minimum-Step Recovery")
+    plt.savefig(output / "minimum_recovery.png", dpi=200, bbox_inches="tight")
 
     # maximum number of steps from the same initial condition
     max_states, max_footstrikes, max_success = simulate_recovery(
@@ -258,6 +262,7 @@ def main():
     print(f"reached standing: {max_success}")
 
     plot_recovery(max_states, recovery_velocity, "Maximum-Step Recovery")
+    plt.savefig(output / "maximum_recovery.png", dpi=200, bbox_inches="tight")
 
     plt.show()
 
