@@ -9,25 +9,91 @@ import numpy as np
 
 
 def generate_params():
-    pass
+    return {
+        "gravity": 9.81,
+        "length": 1.0,
+        "mass": 1.0,
+        "incline": 0.06,
+        "angle_of_attack": np.pi / 8,
+        "ankle_torque": 0.0,
+    }
 
 
 def dynamics(t, state, params):
-    # TODO: implement the state derivative.
-    return np.array([0.0, 0.0])
+    gravity = params["gravity"]
+    length = params["length"]
+    mass = params["mass"]
+    ankle_torque = params["ankle_torque"]
+
+    theta = state[0]
+    angular_velocity = state[1]
+
+    angular_acceleration = (
+        gravity / length * np.sin(theta)
+        + ankle_torque / (mass * length**2)
+    )
+
+    return np.array([
+        angular_velocity,
+        angular_acceleration,
+    ])
 
 
 def event_guard(previous_state, next_state, params):
-    pass
+    alpha = params["angle_of_attack"]
+    incline = params["incline"]
+
+    forward_contact = incline + alpha
+    backward_contact = incline - alpha
+
+    crossed_forward = (
+        previous_state[0] < forward_contact
+        and next_state[0] >= forward_contact
+    )
+
+    crossed_backward = (
+        previous_state[0] > backward_contact
+        and next_state[0] <= backward_contact
+    )
+
+    return crossed_forward or crossed_backward
 
 
 def event_dynamics(state, params):
-    pass
+    alpha = params["angle_of_attack"]
+    incline = params["incline"]
+
+    theta = state[0]
+    angular_velocity = state[1]
+
+    forward_contact = incline + alpha
+    backward_contact = incline - alpha
+
+    if theta >= forward_contact:
+        theta = backward_contact
+    elif theta <= backward_contact:
+        theta = forward_contact
+
+    angular_velocity *= np.cos(2.0 * alpha)
+
+    return np.array([
+        theta,
+        angular_velocity,
+    ])
 
 
 def calculate_energy(state, params):
-    pass
+    gravity = params["gravity"]
+    length = params["length"]
+    mass = params["mass"]
 
+    theta = state[0]
+    angular_velocity = state[1]
+
+    kinetic_energy = 0.5 * mass * length**2 * angular_velocity**2
+    potential_energy = mass * gravity * length * np.cos(theta)
+
+    return kinetic_energy, potential_energy
 
 def visualize(
     state,
