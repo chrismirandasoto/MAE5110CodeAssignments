@@ -1,5 +1,7 @@
 import numpy as np
 
+def generate_initial_condition():
+    return np.array([0.0, 0.0])
 
 def generate_params():
     return {
