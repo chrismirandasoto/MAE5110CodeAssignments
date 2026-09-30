@@ -48,7 +48,7 @@ def test_pendulum_damping():
         assert energy_over_time[step] < energy_over_time[step - 1]
 
 #test if torque is implemented correctly by seeing if torque added energy
-def test_torque_damping():
+def test_pendulum_torque():
     #import general params
     params = pendulum.generate_params()
     #set torque to nonzero value and damp coeff to 0 for sanity checking

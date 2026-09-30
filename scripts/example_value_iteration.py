@@ -1,9 +1,23 @@
-# Pendulum swing-up with value iteration
+# %% [markdown]
+# # Pendulum swing-up with value iteration
 #
+# Chris note:
+# This code creates 4 plots showing the value function, the policy with the
+# simulated trajectory on top, the angle and velocity over time, and the applied
+# torque, plus an animation of how the policy affects the pendulum's behavior
+# over a simulated time. This code works by discretizing the pendulum's states into a grid,
+# building a transition matrix of where each state and torque leads, and using value
+# iteration to pick the best torque from every state. Currently, the policy successfully
+# swings the pendulum up in about 3s but fails to perfectly stabilize it from there
+# as it keeps overshooting the upright position, oscilating for the rest of the
+# simulation time.
+#
+# Assignment note:
 # From the repository root, run `uv run scripts/example_value_iteration.py`.
 # Build a transition matrix, solve for a torque policy, and simulate the
 # continuous pendulum using that policy.
-
+#
+# %%
 # Imports
 from pathlib import Path
 
@@ -14,6 +28,7 @@ from matplotlib.animation import FuncAnimation, PillowWriter
 from algorithms import build_transition_matrix, value_iteration
 from integrators import rk4 as integrator
 from models import pendulum as model
+# %%
 
 # Parameters and grid
 params = model.generate_params()
@@ -34,7 +49,7 @@ actions = actions[np.argsort(np.abs(actions), kind="stable")]
 points = grid_points.reshape(-1, 2)
 lower = points.min(axis=0)
 upper = points.max(axis=0)
-
+# %%
 
 # Build the transition matrix
 def step(state, torque):
@@ -50,6 +65,7 @@ def step(state, torque):
 
 
 transition_matrix = build_transition_matrix(grid_points, actions, step)
+# %%
 
 # Reward and value iteration
 # Reward depends only on the current state: 1 at upright equilibrium, 0 elsewhere.
@@ -82,7 +98,7 @@ for k, t in enumerate(time_traj[:-1]):
     if np.any(next_state < lower) or np.any(next_state > upper):
         print("Simulation stopped: the state left the grid domain.")
         break
-
+# %%
 # Lookup chooses a torque; the simulated state is never snapped onto the grid.
 time_traj = time_traj[: k + 2]
 state_traj = state_traj[:, : k + 2]
@@ -91,7 +107,7 @@ print(
     f"Final angle: {state_traj[0, -1]:.4f} rad; "
     f"angular velocity: {state_traj[1, -1]:.4f} rad/s."
 )
-
+# %%
 # Plot the value, policy, and continuous trajectory
 output = Path("output/value_iteration")
 output.mkdir(parents=True, exist_ok=True)
@@ -159,6 +175,7 @@ axes[1, 1].grid(alpha=0.25)
 fig.savefig(output / "pendulum.png", dpi=180)
 print(f"Saved plots to {output / 'pendulum.png'}.")
 fig  # noqa: B018 — display the figure in the notebook
+# %%
 
 # Animate the pendulum, with zero angle pointing upward.
 length = params["length"]
@@ -197,3 +214,4 @@ plt.show()
 # Display playback controls when this cell is run in a notebook.
 plt.rcParams["animation.html"] = "jshtml"
 animation  # noqa: B018 — display the animation in the notebook
+# %%
