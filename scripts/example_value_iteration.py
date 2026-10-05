@@ -1,10 +1,29 @@
+# %% [markdown]
 # Pendulum swing-up with value iteration
 #
 # From the repository root, run `uv run scripts/example_value_iteration.py`.
 # Build a transition matrix, solve for a torque policy, and simulate the
 # continuous pendulum using that policy.
 
-# Imports
+# %% [markdown]
+# ## 1. Setup
+#
+# Pull in the pieces of the problem and discretize the pendulum's state space,
+# because value iteration can only sweep over a finite set of states and actions.
+#
+# The continuous state is $(\theta, \dot\theta)$, with $\theta = 0$ upright.
+# The space spans 69 angles from $[-\pi, \pi]$ and 121 velocities $[-10, 10]$
+# rad/s stacked into `grid_points` for 8349 total states.
+#
+# The action set is three torques, $\{-7, 0, +7\}$ N·m. They are re-sorted by
+# magnitude with a stable sort, the solver breaks ties by taking the first action
+# Ordering the toeques this way makes the policy prefer doing nothing when torque 
+# makes no difference to the return.
+#
+# `control_steps = 4` and `timestep = 0.01` together define a 0.04 s control
+# interval — the torque is held constant across four integration substeps.
+
+# %% Imports
 from pathlib import Path
 
 import matplotlib.pyplot as plt
@@ -15,7 +34,7 @@ from algorithms import build_transition_matrix, value_iteration
 from integrators import rk4 as integrator
 from models import pendulum as model
 
-# Parameters and grid
+# %% Parameters and grid
 params = model.generate_params()
 initial_state = np.array([-np.pi, 0.0])  # start hanging down, at rest
 timestep = 0.01  # integration substep (s)
@@ -36,7 +55,35 @@ lower = points.min(axis=0)
 upper = points.max(axis=0)
 
 
-# Build the transition matrix
+# %% [markdown]
+# ## 2. Value iteration
+#
+# Turn the continuous pendulum into a finite Markov decision process, then solve
+# that MDP for a torque policy covering every state on the grid.
+#
+# `step` is the one-control-interval model: it copies the parameter dict, sets a
+# constant torque, integrates the dynamics using the rk4 integrator, and sets the
+# resulting angle back into $[-\pi, \pi)$
+#
+# `build_transition_matrix` calls a step for every state/action pair and records 
+# the index of the grid node nearest to wherever each one landed, by smallest 
+# squared Euclidean distance in raw angle/velocity units. Anything landing outside 
+# the bounding box is sent to a terminal node whose continuation value is pinned 
+# at zero.
+#
+# A reward is only given at upright equilimbium `(0, 0)`, it is zero at all other
+# points. There is no control penality, so the discount incentivizes the policy to
+# get to equilibrium faster
+#
+# `value_iteration` then runs synchronous Bellman sweeps,
+#
+# $$V(s) \leftarrow \max_a \left[ R(s, a) + \gamma V(s'(s, a)) \right],$$
+#
+# with $\gamma = 0.99$, stopping once the largest change anywhere on the grid
+# falls below `1e-8`. A final greedy pass takes the `argmax` over actions to
+# produce `policy`, a table of action indices on that grid.
+
+# %% Build the transition matrix
 def step(state, torque):
     """Advance one control interval with constant torque, wrapping the angle."""
     step_params = params.copy()
@@ -51,7 +98,7 @@ def step(state, torque):
 
 transition_matrix = build_transition_matrix(grid_points, actions, step)
 
-# Reward and value iteration
+# %% Reward and value iteration
 # Reward depends only on the current state: 1 at upright equilibrium, 0 elsewhere.
 upright = np.all(np.isclose(grid_points, [0.0, 0.0]), axis=-1)
 reward = np.zeros_like(transition_matrix, dtype=float)
@@ -59,7 +106,20 @@ reward[upright] = 1.0  # the same state reward for every action
 
 value, policy = value_iteration(transition_matrix, reward, discount=discount)
 
-# Simulate the policy on the continuous pendulum
+# %% [markdown]
+# ## 3. Simulation
+#
+# This section applies the policy to the continuous pendulum, to see whether 
+# a controller designed on a coarse grid still works against the real dynamics.
+#
+# After confirming that hanging straight down at rest lies inside the grid domain
+# the loop integrates with RK4 at the full 0.01 s resolution for up to 20 s. 
+# The policy is consulted only every `control_steps` steps: the nearest grid node 
+# to the current state is found through a brute-force approach that compares all
+# points, its stored action index selects a torque, and that torque is then held 
+# for the remainder of the interval.
+
+# %% Simulate the policy on the continuous pendulum
 if np.any(initial_state < lower) or np.any(initial_state > upper):
     raise ValueError("Choose an initial state inside the grid domain.")
 time_traj = np.arange(round(sim_time / timestep) + 1) * timestep
@@ -92,7 +152,29 @@ print(
     f"angular velocity: {state_traj[1, -1]:.4f} rad/s."
 )
 
-# Plot the value, policy, and continuous trajectory
+# %% [markdown]
+# ## 4. Visualization
+#
+# Show what the solver computed and what the pendulum actually did, as four
+# static panels followed by an animation.
+#
+# The 2x2 figure pairs the two grid-sized tables with the two time histories.
+# Top-left draws the value function as a `pcolormesh`, the discounted return
+# available from each state. Top-right draws the policy, mapped from action
+# indices back into torques on a diverging colormap, with the continuous rollout
+# overlaid in the same phase coordinates. The bottom row is time-domain: angle 
+# and velocity together on the left, and the applied torque on the right as a 
+# `step` plot with `where="post"`. Both phase axes get multiples-of-$\pi$ ticks 
+# and are clipped to the grid bounds.
+#
+# The figure is written to `output/value_iteration/pendulum.png`, and the bare
+# `fig` on the cell's last line is what makes the notebook render it inline.
+#
+# The final cell animates the rod in Cartesian space using
+# $x = L\sin\theta$, $y = L\cos\theta$. `frame_stride` subsamples the trajectory 
+# down to roughly 25 fps instead of animating every 0.01 s step.
+
+# %% Plot the value, policy, and continuous trajectory
 output = Path("output/value_iteration")
 output.mkdir(parents=True, exist_ok=True)
 fig, axes = plt.subplots(2, 2, figsize=(11, 8), layout="constrained")
@@ -160,7 +242,7 @@ fig.savefig(output / "pendulum.png", dpi=180)
 print(f"Saved plots to {output / 'pendulum.png'}.")
 fig  # noqa: B018 — display the figure in the notebook
 
-# Animate the pendulum, with zero angle pointing upward.
+# %% Animate the pendulum, with zero angle pointing upward.
 length = params["length"]
 animation_fig, animation_axis = plt.subplots(figsize=(4, 4), layout="constrained")
 animation_axis.set(

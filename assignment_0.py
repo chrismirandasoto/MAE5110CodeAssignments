@@ -32,7 +32,7 @@ def sweep_largest():
 
         # simulation loop
         for step, t in enumerate(time_traj[:-1]):
-            state_traj[:, step + 1] = integrator.newstate(model.dynamics, state_traj[:, step], t, timestep, params)
+            state_traj[:, step + 1] = integrator(model.dynamics, t, state_traj[:, step], timestep, params)
 
         # sanity check the energies
         kinetic_energy, potential_energy = model.calculate_energy(state_traj, params)
@@ -62,7 +62,7 @@ def sweep_fixed():
 
     # simulation loop
     for step, t in enumerate(time_traj[:-1]):
-        state_traj[:, step + 1] = integrator.newstate(model.dynamics, state_traj[:, step], t, timestep, params)
+        state_traj[:, step + 1] = integrator(model.dynamics, t, state_traj[:, step], timestep, params)
 
     # sanity check the energies
     kinetic_energy, potential_energy = model.calculate_energy(state_traj, params)

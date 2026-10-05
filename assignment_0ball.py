@@ -27,7 +27,7 @@ for step, t in enumerate(time_traj[:-1]):
     if state_traj[0, step] <= 0 and state_traj[1, step] < 0:
                 state_traj[1, step] = -params["restitution_coeff"] * state_traj[1, step]
                 state_traj[0, step] = 0
-    state_traj[:, step + 1] = integrator.newstate(model.dynamics, state_traj[:, step], t, timestep, params)
+    state_traj[:, step + 1] = integrator(model.dynamics, t, state_traj[:, step], timestep, params)
 
 
 # sanity check the energies

@@ -1,6 +1,7 @@
-def newstate(dyn,state,t,timestep,params):
-    new = state + (timestep * dyn(t,state,params)) 
-    return new
+def explicit_euler(dyn, t, state, timestep, params):
+    new_state = state + (timestep * dyn(t, state, params))
+
+    return new_state
 
 
 ## simulation loop

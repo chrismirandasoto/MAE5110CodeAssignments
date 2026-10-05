@@ -19,6 +19,11 @@ def generate_params():
 
     return params
 
+def generate_initial_condition():
+    initial_position = np.pi/4 # rad
+    initial_velocity = 0.5 # rad/s
+
+    return np.array([initial_position, initial_velocity])
 
 def dynamics(t, state, params):
     # TODO: implement the state derivative.
