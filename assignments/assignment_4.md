@@ -1,6 +1,6 @@
 # Assignment 4
 
-**Submission Deadline:** Wednesday, October 14th, 11:59PM (midnight)
+**Submission Deadline:** Friday, October 16th, 11:59PM (midnight)
 
 **Goals:**
 - Get familiar with BigRedGym (BRG)
