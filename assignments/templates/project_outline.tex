@@ -1,0 +1,199 @@
+% Copy this template for each proposal and replace the title, names, and prompts.
+% Edit the title and author below, and their matching PDF metadata in hypersetup.
+% The headings are a starting point; adapt them if another structure communicates
+% your idea more clearly. This is an exploration, so say what you are still unsure about.
+% Include related work where it helps explain your idea.
+%
+% Build from the folder containing your copy:
+%   pdflatex project_outline.tex
+%
+% The layout and content match the Markdown template converted with:
+%   pandoc project_outline.md --from=gfm+raw_attribute+smart --standalone -o project_outline.tex
+% After conversion, use $...$ for inline math and equation* for unnumbered displays.
+%
+% Options for packages loaded elsewhere
+\PassOptionsToPackage{unicode}{hyperref}
+\PassOptionsToPackage{hyphens}{url}
+\documentclass[
+  11pt,
+  letterpaper,
+]{article}
+\usepackage{xcolor}
+\usepackage[margin=0.85in]{geometry}
+\usepackage{amsmath,amssymb}
+\setcounter{secnumdepth}{-\maxdimen} % remove section numbering
+\usepackage{iftex}
+\ifPDFTeX
+  \usepackage[T1]{fontenc}
+  \usepackage[utf8]{inputenc}
+  \usepackage{textcomp} % provide euro and other symbols
+\else % if luatex or xetex
+  \usepackage{unicode-math} % this also loads fontspec
+  \defaultfontfeatures{Scale=MatchLowercase}
+  \defaultfontfeatures[\rmfamily]{Ligatures=TeX,Scale=1}
+\fi
+\usepackage{lmodern}
+\ifPDFTeX\else
+  % xetex/luatex font selection
+\fi
+% Use upquote if available, for straight quotes in verbatim environments
+\IfFileExists{upquote.sty}{\usepackage{upquote}}{}
+\IfFileExists{microtype.sty}{% use microtype if available
+  \usepackage[]{microtype}
+  \UseMicrotypeSet[protrusion]{basicmath} % disable protrusion for tt fonts
+}{}
+\makeatletter
+\@ifundefined{KOMAClassName}{% if non-KOMA class
+  \IfFileExists{parskip.sty}{%
+    \usepackage{parskip}
+  }{% else
+    \setlength{\parindent}{0pt}
+    \setlength{\parskip}{6pt plus 2pt minus 1pt}}
+}{% if KOMA class
+  \KOMAoptions{parskip=half}}
+\makeatother
+\pagestyle{empty}
+\setlength{\emergencystretch}{3em} % prevent overfull lines
+\providecommand{\tightlist}{%
+  \setlength{\itemsep}{0pt}\setlength{\parskip}{0pt}}
+\usepackage{graphicx}
+\usepackage{titlesec}
+\titleformat{\section}{\normalfont\large\bfseries}{}{0pt}{}
+\titlespacing*{\section}{0pt}{1em}{0.35em}
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{0.5em}
+\raggedbottom
+\makeatletter
+\renewcommand{\maketitle}{%
+  \begingroup\centering
+  {\Large\bfseries\@title\par}
+  \vspace{0.35em}
+  {\normalsize\@author\par}
+  \endgroup\vspace{0.6em}}
+\makeatother
+% Start each example on a new PDF page without raw LaTeX in the Markdown body.
+\newif\ifoutlinefirstsection
+\outlinefirstsectiontrue
+\let\outlinesection\section
+\renewcommand{\section}{%
+  \ifoutlinefirstsection\outlinefirstsectionfalse\else\clearpage\fi
+  \outlinesection}
+\usepackage{bookmark}
+\IfFileExists{xurl.sty}{\usepackage{xurl}}{} % add URL line breaks if available
+\urlstyle{same}
+% fallback for those not using the hyperref driver hyperxmp:
+\makeatletter
+\@ifundefined{xmpquote}{\newcommand{\xmpquote}[1]{#1}}{}
+\makeatother
+\hypersetup{
+  pdftitle={{[}Project title{]}},
+  pdfauthor={{[}Your name and netID, or all teammates' names and netIDs{]}},
+  hidelinks,
+  pdfcreator={LaTeX via pandoc}}
+
+\title{{[}Project title{]}}
+\author{{[}Your name and netID, or all teammates' names and netIDs{]}}
+\date{}
+
+\begin{document}
+\maketitle
+
+\section{\texorpdfstring{\emph{{[}MAE4110 Performance-driven
+example{]}}}{{[}MAE4110 Performance-driven example{]}}}\label{mae4110-performance-driven-example}
+
+\subsection{What do you want to
+achieve?}\label{what-do-you-want-to-achieve}
+
+Get the robot to backflip on command. A minimum test will be successful
+sim-to-real transfer of a policy that can perform a backflip (full 360
+rotation) from standing. Stretch goals will be to perform back-flips
+while moving, or to do other acrobatics (e.g. barrel-rolls, etc.).
+
+\subsection{How will you show it?}\label{how-will-you-show-it}
+
+To assess performance, we will look at how ``clean'' the landing is:
+
+\begin{itemize}
+\tightlist
+\item
+  how quickly rotational momentum is dissipated and if it has
+  oscillations
+\item
+  time from touch-down to stable standing
+\item
+  as well as number of foot-repositioning (lifting the foot after it has
+  touched-down).
+\item
+  difference of the above between simulation and hardware experiments
+\end{itemize}
+
+\section{\texorpdfstring{\emph{{[}MAE5110 Contribution-driven
+example{]}}}{{[}MAE5110 Contribution-driven example{]}}}\label{mae5110-contribution-driven-example}
+
+\subsection{Context}\label{context}
+
+Current state-of-the-art RL control for legged robots learn policies
+that output the joint position targets for a PD controller, implemented
+as part of the environment, of the form
+
+\begin{equation*}
+\tau = K_p (q_{\text{target}} - q) + K_d (\dot{q}_{\text{target}} - \dot{q}),
+\end{equation*}
+
+where $\tau$ is the joint torque, $K_p$ and $K_d$ are feedback
+gains, and $q$ and $\dot{q}$ are the joint positions and velocities,
+respectively. However, the policies typically only output the joint
+position targets, and leave the velocity target
+$\dot{q}_{\text{target}} = 0$. This is often justified by the
+ambiguity introduced by an action space including both terms, since a
+desired torque $\tau$ can be achieved by different combinations of
+$q_{\text{target}}$ and $\dot{q}_{\text{target}}$.
+
+\subsection{Contribution}\label{contribution}
+
+We show that the an action space including both $q_{\text{target}}$
+and $\dot{q}_{\text{target}}$ is ambiguous under typical reward
+shaping, but that eliminating this ambiguity results in policies that
+violate kinematic constraints less often, and are better able to deal
+with behaviors that require both high velocity and abrupt changes in
+velocity, such as coming to a quick stop from running.
+
+\subsection{Experiment}\label{experiment}
+
+We will establish the presence of ambiguity by comparing three cases:
+
+\begin{enumerate}
+\def\labelenumi{\arabic{enumi}.}
+\tightlist
+\item
+  action-space $\mathcal{A}: [q_{\text{target}}]$ (baseline)
+\item
+  action-space
+  $\mathcal{A}: [q_{\text{target}}, \dot{q}_{\text{target}}]$.
+\item
+  action-space $\mathcal{A}: [q_{\text{target}}]$ with
+  $\dot{q}_{\text{target}}$ computed from a history of
+  $q_{\text{target}}$.
+\end{enumerate}
+
+For each, we will compare the variance in policy output to variance in
+torque output, and in overall reward-output.
+
+We will then benchmark custom rewards that separately penalize
+$q_{\text{target}}$ and $\dot{q}_{\text{target}}$ to disambiguate
+the action space, and validate them in terms of variance ratio (see
+above), and also in terms of frequency of the policy outputting
+kinematically infeasible commands during walking, running, and
+transitions.
+
+% Optional: put supporting figures on a second page. To force a page break and
+% include a figure, uncomment the following lines and replace the path and caption:
+%
+% \newpage
+% \begin{figure}[htbp]
+% \centering
+% \includegraphics[width=0.8\linewidth]{figure.png}
+% \caption{Caption explaining how the figure helps communicate your idea.}
+% \end{figure}
+
+\end{document}
